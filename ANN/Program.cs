@@ -35,11 +35,6 @@ namespace MLPEnemyPos {
         }
 
         static void Main(string[] args) {
-            if (HeroManager.AllHeroes.Count != 10) {
-                Game.Say("Exiting -- expected total champion count to be 10.");
-                return;
-            }
-
             Game.OnUpdate += OnUpdate;
             // Run this code every 100 milliseconds... hopefully it works :D
             var timer = new System.Timers.Timer();
@@ -131,7 +126,7 @@ namespace MLPEnemyPos {
         }
 
         private static void UpdateEnemyPos(object sender, EventArgs e) {
-            if (menu.Item("sendData").IsActive()) {
+            if (menu.Item("sendData").IsActive() && HeroManager.AllHeroes.Count == 10) {
                 foreach (var enemy in HeroManager.Enemies) {
                     if (prevPos.ContainsKey(enemy.Name) && enemy.IsVisible) {
                         prevPos[enemy.Name] = CopyHero(enemy);
