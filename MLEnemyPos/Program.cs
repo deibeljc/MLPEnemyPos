@@ -2,9 +2,14 @@
 using System;
 using System.Collections.Generic;
 using System.IO;
+using System.Net;
 using System.Timers;
 using LeagueSharp.Common;
 using SharpDX;
+using System.Net.Http;
+using System.Net.Http.Headers;
+using System.Text;
+using System.Threading.Tasks;
 
 namespace MLPEnemyPos {
     class Program {
@@ -52,6 +57,47 @@ namespace MLPEnemyPos {
             }
         }
 
+        private static async Task WriteToDB(Obj_AI_Hero enemy) {
+            try {
+                var httpWebRequest =
+                    (HttpWebRequest) WebRequest.Create("https://mlpdb-b3502.firebaseio.com/mlpdata.json");
+                httpWebRequest.ContentType = "application/json";
+                httpWebRequest.Method = "POST";
+                var textToWriteY = "";
+                using (var streamWriterX = new StreamWriter(httpWebRequest.GetRequestStream())) {
+                    var features = "{\"posX\":\"" + prevPos[enemy.Name].Position.X + "\"," +
+                                   "\"posY\":\"" + prevPos[enemy.Name].Position.Y + "\"," +
+                                   "\"health\":\"" + prevPos[enemy.Name].HealthPercent + "\"," +
+                                   "\"alliesInRange\":\"" + prevPos[enemy.Name].CountAlliesInRange + "\"," +
+                                   "\"enemiesInRange\":\"" + prevPos[enemy.Name].CountEnemiesInRange + "\"," +
+                                   "\"level\":\"" + prevPos[enemy.Name].Level + "\"," +
+                                   "\"exp\":\"" + prevPos[enemy.Name].Experience + "\"," +
+                                   "\"canMove\":\"" + prevPos[enemy.Name].CanMove + "\"," +
+                                   "\"canAttack\":\"" + prevPos[enemy.Name].CanAttack + "\"," +
+                                   "\"underAllyTurret\":\"" + prevPos[enemy.Name].UnderAllyTurret + "\"," +
+                                   "\"manaPercent\":\"" + prevPos[enemy.Name].ManaPercent + "\"," +
+                                   "\"moveSpeed\":\"" + prevPos[enemy.Name].MoveSpeed + "\"," +
+                                   AllChampionPositions(enemy.Name) +
+                                   "\"champHash\":\"" + enemy.ChampionName.GetHashCode() + "\"";
+                    var textToWriteX = features + ",\"enemyPredX\":\"" + enemy.ServerPosition.X + "\",\"enemyPredY\":\"" + enemy.ServerPosition.Y + "\"}";
+
+                    streamWriterX.Write(textToWriteX);
+                    streamWriterX.Flush();
+                    streamWriterX.Close();
+                }
+
+                var httpResponse = (HttpWebResponse) httpWebRequest.GetResponse();
+                using (var streamReader = new StreamReader(httpResponse.GetResponseStream())) {
+                    var result = streamReader.ReadToEnd();
+                    Console.WriteLine(result);
+                }
+            }
+            catch (Exception ex) {
+                Console.WriteLine(ex);
+                throw;
+            }
+        }
+
         /**
          * TODO: Things to add:
          *  - Ensure that each player's position remains in order!!!
@@ -82,9 +128,11 @@ namespace MLPEnemyPos {
 
         private static String AllChampionPositions(String name) {
             String retString = "";
+            var iter = 0;
             foreach (var champion in prevPos[name].allHeroesPos) {
-                retString += champion.X + ",";
-                retString += champion.Y + ",";
+                retString += "\"champ" + iter + "PosX\":\"" + champion.X + "\",";
+                retString += "\"champ" + iter + "PosY\":\"" + champion.Y + "\",";
+                iter++;
             }
             return retString;
         }
@@ -92,30 +140,16 @@ namespace MLPEnemyPos {
         private static void UpdateEnemyPos(object sender, EventArgs e) {
             foreach (var enemy in HeroManager.Enemies) {
                 if (prevPos.ContainsKey(enemy.Name) && enemy.IsVisible) {
-                    Console.WriteLine("In Update Enemies!");
-                    var path_X = @"C:\Users\Jon\Desktop\champion_movements\champions.X.txt";
-                    var path_Y = @"C:\Users\Jon\Desktop\champion_movements\champions.Y.txt";
-                    var features = prevPos[enemy.Name].Position.X + "," +
-                                   prevPos[enemy.Name].Position.Y + "," +
-                                   prevPos[enemy.Name].HealthPercent + "," +
-                                   prevPos[enemy.Name].Distance + "," +
-                                   prevPos[enemy.Name].CountAlliesInRange + "," +
-                                   prevPos[enemy.Name].CountEnemiesInRange + "," +
-                                   prevPos[enemy.Name].Level + "," +
-                                   prevPos[enemy.Name].Experience + "," +
-                                   prevPos[enemy.Name].CanMove + "," +
-                                   prevPos[enemy.Name].CanAttack + "," +
-                                   prevPos[enemy.Name].UnderAllyTurret + "," +
-                                   prevPos[enemy.Name].ManaPercent + "," +
-                                   prevPos[enemy.Name].MoveSpeed + "," +
-                                   AllChampionPositions(enemy.Name) +
-                                   enemy.ChampionName.GetHashCode();
-                    var textToWriteX = features + "," + enemy.ServerPosition.X;
-                    var textToWriteY = features + "," + enemy.ServerPosition.Y;
                     prevPos[enemy.Name] = CopyHero(enemy);
-                    WriteToFile(path_X, textToWriteX);
-                    WriteToFile(path_Y, textToWriteY);
+                    try {
+                        WriteToDB(enemy);
+                    }
+                    catch (Exception ex) {
+                        Console.WriteLine(ex);
+                        throw;
+                    }
                 }
+
                 if (!prevPos.ContainsKey(enemy.Name)) {
                     Console.WriteLine("In Init Enemies");
                     try {
