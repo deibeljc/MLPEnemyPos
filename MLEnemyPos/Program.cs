@@ -35,13 +35,18 @@ namespace MLPEnemyPos {
         }
 
         static void Main(string[] args) {
+            if (HeroManager.AllHeroes.Count != 10) {
+                Game.Say("Exiting -- expected total champion count to be 10.");
+                return;
+            }
+
             Game.OnUpdate += OnUpdate;
             // Run this code every 100 milliseconds... hopefully it works :D
             var timer = new System.Timers.Timer();
             timer.Elapsed += new ElapsedEventHandler(UpdateEnemyPos);
             timer.Interval = 500;
             timer.Enabled = true;
-            menu = new Menu("NN Data", "mlpdata", true);
+            menu = new Menu("ANN", "ann", true);
             menu.AddItem(new MenuItem("sendData", "Send Data").SetValue(true));
             menu.AddToMainMenu();
         }
