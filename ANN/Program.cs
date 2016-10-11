@@ -54,7 +54,7 @@ namespace MLPEnemyPos {
         private static async Task WriteToDB(Obj_AI_Hero enemy) {
             try {
                 var httpWebRequest =
-                    (HttpWebRequest) WebRequest.Create("https://mlpdb-b3502.firebaseio.com/mlpdata.json");
+                    (HttpWebRequest) WebRequest.Create("https://mlpdb-f6531.firebaseio.com/mlpdata.json");
                 httpWebRequest.ContentType = "application/json";
                 httpWebRequest.Method = "POST";
                 using (var streamWriterX = new StreamWriter(httpWebRequest.GetRequestStream())) {
