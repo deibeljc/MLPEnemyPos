@@ -15,6 +15,7 @@ namespace MLPEnemyPos {
     class Program {
 
         private static Dictionary<String, HeroInfo> prevPos = new Dictionary<String, HeroInfo>();
+        private static Menu menu;
 
         struct HeroInfo {
             public Vector3 Position;
@@ -40,21 +41,9 @@ namespace MLPEnemyPos {
             timer.Elapsed += new ElapsedEventHandler(UpdateEnemyPos);
             timer.Interval = 500;
             timer.Enabled = true;
-            
-        }
-
-        private static void WriteToFile(String path, String text) {
-            if (File.Exists(path)) {
-                TextWriter tw = new StreamWriter(path, true);
-                tw.WriteLine(text);
-                tw.Close();
-            }
-            else {
-                File.Create(path);
-                TextWriter tw = new StreamWriter(path, true);
-                tw.WriteLine(text);
-                tw.Close();
-            }
+            menu = new Menu("NN Data", "mlpdata", true);
+            menu.AddItem(new MenuItem("sendData", "Send Data").SetValue(true));
+            menu.AddToMainMenu();
         }
 
         private static async Task WriteToDB(Obj_AI_Hero enemy) {
@@ -63,7 +52,6 @@ namespace MLPEnemyPos {
                     (HttpWebRequest) WebRequest.Create("https://mlpdb-b3502.firebaseio.com/mlpdata.json");
                 httpWebRequest.ContentType = "application/json";
                 httpWebRequest.Method = "POST";
-                var textToWriteY = "";
                 using (var streamWriterX = new StreamWriter(httpWebRequest.GetRequestStream())) {
                     var features = "{\"posX\":\"" + prevPos[enemy.Name].Position.X + "\"," +
                                    "\"posY\":\"" + prevPos[enemy.Name].Position.Y + "\"," +
@@ -138,26 +126,28 @@ namespace MLPEnemyPos {
         }
 
         private static void UpdateEnemyPos(object sender, EventArgs e) {
-            foreach (var enemy in HeroManager.Enemies) {
-                if (prevPos.ContainsKey(enemy.Name) && enemy.IsVisible) {
-                    prevPos[enemy.Name] = CopyHero(enemy);
-                    try {
-                        WriteToDB(enemy);
-                    }
-                    catch (Exception ex) {
-                        Console.WriteLine(ex);
-                        throw;
-                    }
-                }
-
-                if (!prevPos.ContainsKey(enemy.Name)) {
-                    Console.WriteLine("In Init Enemies");
-                    try {
+            if (menu.Item("sendData").IsActive()) {
+                foreach (var enemy in HeroManager.Enemies) {
+                    if (prevPos.ContainsKey(enemy.Name) && enemy.IsVisible) {
                         prevPos[enemy.Name] = CopyHero(enemy);
+                        try {
+                            WriteToDB(enemy);
+                        }
+                        catch (Exception ex) {
+                            Console.WriteLine(ex);
+                            throw;
+                        }
                     }
-                    catch (Exception exception) {
-                        Console.WriteLine(exception);
-                        throw;
+
+                    if (!prevPos.ContainsKey(enemy.Name)) {
+                        Console.WriteLine("In Init Enemies");
+                        try {
+                            prevPos[enemy.Name] = CopyHero(enemy);
+                        }
+                        catch (Exception exception) {
+                            Console.WriteLine(exception);
+                            throw;
+                        }
                     }
                 }
             }
