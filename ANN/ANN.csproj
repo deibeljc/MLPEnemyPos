@@ -37,7 +37,7 @@
     <SignAssembly>true</SignAssembly>
   </PropertyGroup>
   <PropertyGroup>
-    <AssemblyOriginatorKeyFile>key.snk</AssemblyOriginatorKeyFile>
+    <AssemblyOriginatorKeyFile>Properties\key.snk</AssemblyOriginatorKeyFile>
   </PropertyGroup>
   <ItemGroup>
     <Reference Include="LeagueSharp">
@@ -71,19 +71,20 @@
     <Reference Include="System.Xml" />
   </ItemGroup>
   <ItemGroup>
-    <Compile Include="BooleanIntConverter.cs" />
-    <Compile Include="CompressedContent.cs" />
-    <Compile Include="SnapshotEntry.cs" />
+    <Compile Include="Helpers\BooleanIntConverter.cs" />
+    <Compile Include="Helpers\CompressedContent.cs" />
+    <Compile Include="Model\SnapshotEntry.cs" />
     <Compile Include="Program.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
-    <Compile Include="HeroEntry.cs" />
-    <Compile Include="Time.cs" />
-    <Compile Include="Vector3Converter.cs" />
+    <Compile Include="Model\HeroEntry.cs" />
+    <Compile Include="Model\Time.cs" />
+    <Compile Include="Helpers\Vector3Converter.cs" />
   </ItemGroup>
   <ItemGroup>
     <None Include="App.config" />
-    <None Include="key.snk" />
+    <None Include="Properties\key.snk" />
   </ItemGroup>
+  <ItemGroup />
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
   <!-- To modify your build process, add your task inside one of the targets below and uncomment it. 
        Other similar extension points exist, see Microsoft.Common.targets.

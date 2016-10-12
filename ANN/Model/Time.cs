@@ -3,7 +3,7 @@
 //     Copyright (c) ANN. All rights reserved.
 // </copyright>
 // --------------------------------------------------------------------------------------------------------------------
-namespace MLPEnemyPos
+namespace ANN.Model
 {
     using System;
 

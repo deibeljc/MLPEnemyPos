@@ -3,17 +3,19 @@
 //     Copyright (c) ANN. All rights reserved.
 // </copyright>
 // --------------------------------------------------------------------------------------------------------------------
-namespace MLPEnemyPos
+namespace ANN
 {
     using System;
     using System.Collections.Generic;
-    using System.IO;
     using System.Net.Http;
     using System.Reflection;
     using System.Security;
     using System.Security.Permissions;
     using System.Text;
     using System.Threading.Tasks;
+
+    using ANN.Helpers;
+    using ANN.Model;
 
     using LeagueSharp;
     using LeagueSharp.Common;

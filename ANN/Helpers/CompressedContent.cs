@@ -3,7 +3,7 @@
 //     Copyright (c) ANN. All rights reserved.
 // </copyright>
 // --------------------------------------------------------------------------------------------------------------------
-namespace MLPEnemyPos
+namespace ANN.Helpers
 {
     using System;
     using System.ComponentModel;
@@ -71,10 +71,7 @@ namespace MLPEnemyPos
             return this.originalContent
                        .CopyToAsync(compressedStream)
                        .ContinueWith(
-                           tsk =>
-                           {
-                               compressedStream?.Dispose();
-                           });
+                           tsk => { compressedStream?.Dispose(); });
         }
 
         protected override bool TryComputeLength(out long length)

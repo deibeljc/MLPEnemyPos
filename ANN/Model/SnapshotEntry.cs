@@ -3,7 +3,7 @@
 //     Copyright (c) ANN. All rights reserved.
 // </copyright>
 // --------------------------------------------------------------------------------------------------------------------
-namespace MLPEnemyPos
+namespace ANN.Model
 {
     using System.Security;
 
@@ -36,13 +36,13 @@ namespace MLPEnemyPos
             }
         }
 
-        [JsonProperty(PropertyName = "enemies")]
-        public HeroInfo[] Enemies { get; }
+        [JsonProperty(PropertyName = "time")]
+        public float Time { get; }
 
         [JsonProperty(PropertyName = "player")]
         public HeroInfo Player { get; }
 
-        [JsonProperty(PropertyName = "time")]
-        public float Time { get; }
+        [JsonProperty(PropertyName = "enemies")]
+        public HeroInfo[] Enemies { get; }
     }
 }
