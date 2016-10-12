@@ -1,166 +1,206 @@
-﻿using LeagueSharp;
-using System;
-using System.Collections.Generic;
-using System.IO;
-using System.Net;
-using System.Timers;
-using LeagueSharp.Common;
-using SharpDX;
-using System.Net.Http;
-using System.Net.Http.Headers;
-using System.Text;
-using System.Threading.Tasks;
+﻿// --------------------------------------------------------------------------------------------------------------------
+// <copyright file="Program.cs" company="ANN">
+//     Copyright (c) ANN. All rights reserved.
+// </copyright>
+// --------------------------------------------------------------------------------------------------------------------
+namespace MLPEnemyPos
+{
+    using System;
+    using System.Collections.Generic;
+    using System.IO;
+    using System.Net.Http;
+    using System.Reflection;
+    using System.Security;
+    using System.Security.Permissions;
+    using System.Text;
+    using System.Threading.Tasks;
 
-namespace MLPEnemyPos {
-    class Program {
+    using LeagueSharp;
+    using LeagueSharp.Common;
 
-        private static Dictionary<String, HeroInfo> prevPos = new Dictionary<String, HeroInfo>();
-        private static Menu menu;
+    using log4net;
 
-        struct HeroInfo {
-            public Vector3 Position;
-            public float HealthPercent;
-            public Vector3 Direction;
-            public float Distance;
-            public int CountAlliesInRange;
-            public int CountEnemiesInRange;
-            public int Level;
-            public float Experience;
-            public int CanMove;
-            public int CanAttack;
-            public int UnderAllyTurret;
-            public float ManaPercent;
-            public float MoveSpeed;
-            public List<Vector3> allHeroesPos;
+    using Newtonsoft.Json;
+
+    using PlaySharp.Toolkit.Logging;
+
+    internal class Program
+    {
+        private static readonly ILog Log = AssemblyLogs.GetLogger(MethodBase.GetCurrentMethod().DeclaringType);
+
+        [SecuritySafeCritical]
+        public Program()
+        {
+            // httpclient
+            this.Client = new HttpClient { Timeout = TimeSpan.FromSeconds(10) };
+
+            // menu
+            this.Menu = new Menu("ANN", "ann", true);
+            this.SendMenu = this.Menu.AddItem(new MenuItem("send", "Send Data").SetValue(true));
+            this.Menu.AddToMainMenu();
+
+            // activation
+            this.SendMenu.ValueChanged += this.SendOnValueChanged;
+            if (this.SendMenu.GetValue<bool>())
+            {
+                this.Activate();
+            }
         }
 
-        static void Main(string[] args) {
-            if (HeroManager.AllHeroes.Count != 10) {
-                Game.Say("Exiting -- expected total champion count to be 10.");
+        public static Program Instance { get; private set; }
+
+        public Menu Menu { [SecuritySafeCritical] get; }
+
+        public MenuItem SendMenu { [SecuritySafeCritical] get; }
+
+        private HttpClient Client { get; }
+
+        private string Endpoint { get; } = "https://mlpdb-f6531.firebaseio.com/mlpdata.json";
+
+        private bool IsActive { get; set; }
+
+        private TimeSpan LastSnapshot { get; set; }
+
+        private TimeSpan SnapshotRate { get; } = TimeSpan.FromMilliseconds(500);
+
+        private List<SnapshotEntry> Snapshots { get; } = new List<SnapshotEntry>();
+
+        private int SnapshotsSendLimit { get; } = 10;
+
+        [SecuritySafeCritical]
+        private static void Main(string[] args)
+        {
+            CustomEvents.Game.OnGameLoad += OnGameLoad;
+        }
+
+        [SecuritySafeCritical]
+        private static void OnGameLoad(EventArgs args)
+        {
+            if (HeroManager.AllHeroes.Count != 10)
+            {
+                Log.Warn($"Exiting -- expected total champion count to be 10.");
                 return;
             }
 
-            Game.OnUpdate += OnUpdate;
-            // Run this code every 100 milliseconds... hopefully it works :D
-            var timer = new System.Timers.Timer();
-            timer.Elapsed += new ElapsedEventHandler(UpdateEnemyPos);
-            timer.Interval = 500;
-            timer.Enabled = true;
-            menu = new Menu("ANN", "ann", true);
-            menu.AddItem(new MenuItem("sendData", "Send Data").SetValue(true));
-            menu.AddToMainMenu();
+            Instance = new Program();
         }
 
-        private static async Task WriteToDB(Obj_AI_Hero enemy) {
-            try {
-                var httpWebRequest =
-                    (HttpWebRequest) WebRequest.Create("https://mlpdb-b3502.firebaseio.com/mlpdata.json");
-                httpWebRequest.ContentType = "application/json";
-                httpWebRequest.Method = "POST";
-                using (var streamWriterX = new StreamWriter(httpWebRequest.GetRequestStream())) {
-                    var features = "{\"posX\":\"" + prevPos[enemy.Name].Position.X + "\"," +
-                                   "\"posY\":\"" + prevPos[enemy.Name].Position.Y + "\"," +
-                                   "\"health\":\"" + prevPos[enemy.Name].HealthPercent + "\"," +
-                                   "\"alliesInRange\":\"" + prevPos[enemy.Name].CountAlliesInRange + "\"," +
-                                   "\"enemiesInRange\":\"" + prevPos[enemy.Name].CountEnemiesInRange + "\"," +
-                                   "\"level\":\"" + prevPos[enemy.Name].Level + "\"," +
-                                   "\"exp\":\"" + prevPos[enemy.Name].Experience + "\"," +
-                                   "\"canMove\":\"" + prevPos[enemy.Name].CanMove + "\"," +
-                                   "\"canAttack\":\"" + prevPos[enemy.Name].CanAttack + "\"," +
-                                   "\"underAllyTurret\":\"" + prevPos[enemy.Name].UnderAllyTurret + "\"," +
-                                   "\"manaPercent\":\"" + prevPos[enemy.Name].ManaPercent + "\"," +
-                                   "\"moveSpeed\":\"" + prevPos[enemy.Name].MoveSpeed + "\"," +
-                                   AllChampionPositions(enemy.Name) +
-                                   "\"champHash\":\"" + enemy.ChampionName.GetHashCode() + "\"";
-                    var textToWriteX = features + ",\"enemyPredX\":\"" + enemy.ServerPosition.X + "\",\"enemyPredY\":\"" + enemy.ServerPosition.Y + "\"}";
+        [SecuritySafeCritical]
+        private void Activate()
+        {
+            if (this.IsActive)
+            {
+                return;
+            }
 
-                    streamWriterX.Write(textToWriteX);
-                    streamWriterX.Flush();
-                    streamWriterX.Close();
+            this.IsActive = true;
+            Game.OnUpdate += this.OnUpdate;
+            Log.Debug($"[ANN] Activated");
+        }
+
+        [SecuritySafeCritical]
+        private void Deactivate()
+        {
+            if (!this.IsActive)
+            {
+                return;
+            }
+
+            this.IsActive = false;
+            Game.OnUpdate -= this.OnUpdate;
+            Log.Debug($"[ANN] Deactivated");
+        }
+
+        [SecuritySafeCritical]
+        [PermissionSet(SecurityAction.Assert, Unrestricted = true)]
+        private HttpContent GetSnapshotContent(IEnumerable<SnapshotEntry> snapshots)
+        {
+            // convert to json
+            var json = JsonConvert.SerializeObject(snapshots, Formatting.Indented, new BooleanIntConverter());
+            var stringContent = new StringContent(json, Encoding.UTF8, "application/json");
+
+            return stringContent;
+
+            // TODO: server retusn 401 - gzip not supported?
+            // compress with gzip
+            return new CompressedContent(stringContent, CompressionMethods.GZip);
+        }
+
+        [SecuritySafeCritical]
+        private void OnUpdate(EventArgs args)
+        {
+            try
+            {
+                var delta = Time.Current - this.LastSnapshot;
+                if (delta < this.SnapshotRate)
+                {
+                    return;
                 }
 
-                var httpResponse = (HttpWebResponse) httpWebRequest.GetResponse();
-                using (var streamReader = new StreamReader(httpResponse.GetResponseStream())) {
-                    var result = streamReader.ReadToEnd();
-                    Console.WriteLine(result);
+                // take new snapshot
+                this.LastSnapshot = Time.Current;
+                this.Snapshots.Add(new SnapshotEntry());
+
+                // send 
+                if (this.Snapshots.Count > this.SnapshotsSendLimit)
+                {
+                    var dataToSend = this.Snapshots.ToArray();
+
+                    Task.Factory.StartNew(
+                            () =>
+                            {
+                                try
+                                {
+                                    this.SendSnapshots(dataToSend);
+                                }
+                                catch (Exception e)
+                                {
+                                    Log.Error(e);
+                                }
+                            });
+
+                    this.Snapshots.Clear();
                 }
             }
-            catch (Exception ex) {
-                Console.WriteLine(ex);
-                throw;
+            catch (Exception e)
+            {
+                Log.Error(e);
             }
         }
 
-        /**
-         * TODO: Things to add:
-         *  - Ensure that each player's position remains in order!!!
-         *  - Exclude positon when players are backing
-         */
-
-        private static HeroInfo CopyHero(Obj_AI_Hero hero) {
-            HeroInfo retHero = new HeroInfo();
-            retHero.Position = hero.ServerPosition;
-            retHero.HealthPercent = hero.HealthPercent;
-            retHero.Direction = hero.Direction;
-            retHero.Distance = hero.Distance(HeroManager.Player);
-            retHero.CountAlliesInRange = hero.CountAlliesInRange(2000);
-            retHero.CountEnemiesInRange = hero.CountEnemiesInRange(2000);
-            retHero.Level = hero.Level;
-            retHero.Experience = hero.Experience;
-            retHero.CanMove = Convert.ToInt32(hero.CanMove);
-            retHero.CanAttack = Convert.ToInt32(hero.CanAttack);
-            retHero.UnderAllyTurret = Convert.ToInt32(hero.UnderAllyTurret());
-            retHero.ManaPercent = hero.ManaPercent;
-            retHero.MoveSpeed = hero.MoveSpeed;
-            retHero.allHeroesPos = new List<Vector3>();
-            foreach (var champ in HeroManager.AllHeroes) {
-                retHero.allHeroesPos.Add(champ.ServerPosition);
+        [SecuritySafeCritical]
+        private void SendOnValueChanged(object sender, OnValueChangeEventArgs args)
+        {
+            if (args.GetNewValue<bool>())
+            {
+                this.Activate();
             }
-            return retHero;
-        }
-
-        private static String AllChampionPositions(String name) {
-            String retString = "";
-            var iter = 0;
-            foreach (var champion in prevPos[name].allHeroesPos) {
-                retString += "\"champ" + iter + "PosX\":\"" + champion.X + "\",";
-                retString += "\"champ" + iter + "PosY\":\"" + champion.Y + "\",";
-                iter++;
-            }
-            return retString;
-        }
-
-        private static void UpdateEnemyPos(object sender, EventArgs e) {
-            if (menu.Item("sendData").IsActive()) {
-                foreach (var enemy in HeroManager.Enemies) {
-                    if (prevPos.ContainsKey(enemy.Name) && enemy.IsVisible) {
-                        prevPos[enemy.Name] = CopyHero(enemy);
-                        try {
-                            WriteToDB(enemy);
-                        }
-                        catch (Exception ex) {
-                            Console.WriteLine(ex);
-                            throw;
-                        }
-                    }
-
-                    if (!prevPos.ContainsKey(enemy.Name)) {
-                        Console.WriteLine("In Init Enemies");
-                        try {
-                            prevPos[enemy.Name] = CopyHero(enemy);
-                        }
-                        catch (Exception exception) {
-                            Console.WriteLine(exception);
-                            throw;
-                        }
-                    }
-                }
+            else
+            {
+                this.Deactivate();
             }
         }
 
+        [SecuritySafeCritical]
+        [PermissionSet(SecurityAction.Assert, Unrestricted = true)]
+        private void SendSnapshots(IEnumerable<SnapshotEntry> snapshots)
+        {
+            try
+            {
+                var content = this.GetSnapshotContent(snapshots);
 
-        private static void OnUpdate(EventArgs args) {
-            // Do stuff in here eventually..
+                // send and verify
+                var result = this.Client.PostAsync(this.Endpoint, content).Result;
+                result.EnsureSuccessStatusCode();
+
+                // print result
+                var resultContent = result.Content.ReadAsStringAsync().Result;
+                Log.Debug($"Result: {resultContent}");
+            }
+            catch (Exception e)
+            {
+                Log.Error(e);
+            }
         }
     }
 }
