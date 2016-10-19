@@ -65,7 +65,6 @@ namespace MLPEnemyPos {
                                    "\"underAllyTurret\":\"" + prevPos[enemy.Name].UnderAllyTurret + "\"," +
                                    "\"manaPercent\":\"" + prevPos[enemy.Name].ManaPercent + "\"," +
                                    "\"moveSpeed\":\"" + prevPos[enemy.Name].MoveSpeed + "\"," +
-                                   ChampionPath(enemy) +
                                    AllChampionPositions(enemy) +
                                    "\"champHash\":\"" + enemy.ChampionName.GetHashCode() + "\"";
                     var textToWriteX = features + ",\"enemyPredX\":\"" + enemy.ServerPosition.X + "\",\"enemyPredY\":\"" + enemy.ServerPosition.Y + "\"}";
