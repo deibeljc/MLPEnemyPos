@@ -31,7 +31,7 @@ namespace MLPEnemyPos {
             public int UnderAllyTurret;
             public float ManaPercent;
             public float MoveSpeed;
-            public List<Vector3> allHeroesPos;
+            public List<Obj_AI_Hero> allHeroesInfo;
         }
 
         static void Main(string[] args) {
@@ -39,7 +39,7 @@ namespace MLPEnemyPos {
             // Run this code every 100 milliseconds... hopefully it works :D
             var timer = new System.Timers.Timer();
             timer.Elapsed += new ElapsedEventHandler(UpdateEnemyPos);
-            timer.Interval = 500;
+            timer.Interval = 400;
             timer.Enabled = true;
             menu = new Menu("ANN", "ann", true);
             menu.AddItem(new MenuItem("sendData", "Send Data").SetValue(true));
@@ -49,7 +49,7 @@ namespace MLPEnemyPos {
         private static async Task WriteToDB(Obj_AI_Hero enemy) {
             try {
                 var httpWebRequest =
-                    (HttpWebRequest) WebRequest.Create("https://mlpdb-f6531.firebaseio.com/mlpdata.json");
+                    (HttpWebRequest) WebRequest.Create("https://mlpdb-f6531.firebaseio.com/mlpdata-feature-eng-1.json");
                 httpWebRequest.ContentType = "application/json";
                 httpWebRequest.Method = "POST";
                 using (var streamWriterX = new StreamWriter(httpWebRequest.GetRequestStream())) {
@@ -65,7 +65,8 @@ namespace MLPEnemyPos {
                                    "\"underAllyTurret\":\"" + prevPos[enemy.Name].UnderAllyTurret + "\"," +
                                    "\"manaPercent\":\"" + prevPos[enemy.Name].ManaPercent + "\"," +
                                    "\"moveSpeed\":\"" + prevPos[enemy.Name].MoveSpeed + "\"," +
-                                   AllChampionPositions(enemy.Name) +
+                                   ChampionPath(enemy) +
+                                   AllChampionPositions(enemy) +
                                    "\"champHash\":\"" + enemy.ChampionName.GetHashCode() + "\"";
                     var textToWriteX = features + ",\"enemyPredX\":\"" + enemy.ServerPosition.X + "\",\"enemyPredY\":\"" + enemy.ServerPosition.Y + "\"}";
 
@@ -107,20 +108,42 @@ namespace MLPEnemyPos {
             retHero.UnderAllyTurret = Convert.ToInt32(hero.UnderAllyTurret());
             retHero.ManaPercent = hero.ManaPercent;
             retHero.MoveSpeed = hero.MoveSpeed;
-            retHero.allHeroesPos = new List<Vector3>();
+            retHero.allHeroesInfo = new List<Obj_AI_Hero>();
             foreach (var champ in HeroManager.AllHeroes) {
-                retHero.allHeroesPos.Add(champ.ServerPosition);
+                retHero.allHeroesInfo.Add(champ);
             }
             return retHero;
         }
 
-        private static String AllChampionPositions(String name) {
+        private static String AllChampionPositions(Obj_AI_Hero enemy) {
             String retString = "";
             var iter = 0;
-            foreach (var champion in prevPos[name].allHeroesPos) {
-                retString += "\"champ" + iter + "PosX\":\"" + champion.X + "\",";
-                retString += "\"champ" + iter + "PosY\":\"" + champion.Y + "\",";
+            foreach (var champion in prevPos[enemy.Name].allHeroesInfo) {
+                retString += "\"champ" + iter + "PosX\":\"" + champion.ServerPosition.X + "\",";
+                retString += "\"champ" + iter + "PosY\":\"" + champion.ServerPosition.Y + "\",";
+                retString += "\"champ" + iter + "Health\":\"" + champion.HealthPercent + "\",";
+                retString += "\"champ" + iter + "AttackDamage\":\"" + champion.TotalAttackDamage + "\",";
+                retString += "\"champ" + iter + "APDamage\":\"" + champion.TotalMagicalDamage + "\",";
+                retString += "\"champ" + iter + "Level\":\"" + champion.Level + "\",";
+                retString += "\"champ" + iter + "GoldTotal\":\"" + champion.GoldTotal + "\",";
+                retString += "\"champ" + iter + "Gold\":\"" + champion.Gold + "\",";
+                retString += "\"champ" + iter + "TotalScore\":\"" + champion.TotalPlayerScore + "\",";
+                retString += "\"champ" + iter + "Score\":\"" + champion.Score + "\",";
+                retString += "\"champ" + iter + "DistanceDeltaX\":\"" + (champion.ServerPosition.X - enemy.ServerPosition.X) + "\",";
+                retString += "\"champ" + iter + "DistanceDeltaY\":\"" + (champion.ServerPosition.Y - enemy.ServerPosition.Y) + "\",";
                 iter++;
+            }
+            return retString;
+        }
+
+        private static String ChampionPath(Obj_AI_Hero enemy) {
+            String retString = "";
+            var iter = 0;
+            if (enemy.Path.Length >= 5) {
+                for (int i = enemy.Path.Length - 6; i < 5; i++) {
+                    retString += "\"champPath" + iter + "\":\"" + enemy.Path[i] + "\",";
+                    iter++;
+                }
             }
             return retString;
         }
