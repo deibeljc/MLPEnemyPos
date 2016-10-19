@@ -141,7 +141,15 @@ namespace MLPEnemyPos {
             var iter = 0;
             if (enemy.Path.Length >= 5) {
                 for (int i = enemy.Path.Length - 6; i < 5; i++) {
-                    retString += "\"champPath" + iter + "\":\"" + enemy.Path[i] + "\",";
+                    retString += "\"champPathX" + iter + "\":\"" + enemy.Path[i].X + "\",";
+                    retString += "\"champPathY" + iter + "\":\"" + enemy.Path[i].Y + "\",";
+                    iter++;
+                }
+            }
+            else {
+                for (int i = 0; i < 5; i++) {
+                    retString += "\"champPathX" + iter + "\":\"" + (enemy.Path.Length - 1 <= i ? enemy.Path[i].X : -1) + "\",";
+                    retString += "\"champPathY" + iter + "\":\"" + (enemy.Path.Length - 1 <= i ? enemy.Path[i].Y : -1) + "\",";
                     iter++;
                 }
             }
