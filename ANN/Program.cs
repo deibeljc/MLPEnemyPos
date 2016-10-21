@@ -39,7 +39,7 @@ namespace MLPEnemyPos {
             // Run this code every 100 milliseconds... hopefully it works :D
             var timer = new System.Timers.Timer();
             timer.Elapsed += new ElapsedEventHandler(UpdateEnemyPos);
-            timer.Interval = 1000;
+            timer.Interval = 500;
             timer.Enabled = true;
             menu = new Menu("ANN", "ann", true);
             menu.AddItem(new MenuItem("sendData", "Send Data").SetValue(true));
