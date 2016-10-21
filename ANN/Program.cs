@@ -43,7 +43,18 @@ namespace MLPEnemyPos {
             timer.Enabled = true;
             menu = new Menu("ANN", "ann", true);
             menu.AddItem(new MenuItem("sendData", "Send Data").SetValue(true));
+            menu.AddItem(new MenuItem("debug", "Draw Debug").SetValue(false));
             menu.AddToMainMenu();
+            Drawing.OnDraw += OnDraw;
+        }
+
+        private static void OnDraw(EventArgs args) {
+            if (menu.Item("debug").IsActive()) {
+                foreach (var enemy in HeroManager.Enemies) {
+                    Render.Circle.DrawCircle(enemy.ServerPosition, 10f, System.Drawing.Color.Blue, 10);
+                    Render.Circle.DrawCircle(prevPos[enemy.Name].Position, 10f, System.Drawing.Color.Red, 10);
+                }
+            }
         }
 
         private static async Task WriteToDB(Obj_AI_Hero enemy) {
