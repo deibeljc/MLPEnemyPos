@@ -177,9 +177,9 @@ namespace MLPEnemyPos {
             if (menu.Item("sendData").IsActive() && HeroManager.AllHeroes.Count == 10) {
                 foreach (var enemy in HeroManager.Enemies) {
                     if (prevPos.ContainsKey(enemy.Name) && enemy.IsVisible) {
-                        prevPos[enemy.Name] = CopyHero(enemy);
                         try {
                             WriteToDB(enemy);
+                            prevPos[enemy.Name] = CopyHero(enemy);
                         }
                         catch (Exception ex) {
                             Console.WriteLine(ex);
