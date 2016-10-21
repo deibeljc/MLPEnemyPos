@@ -141,7 +141,7 @@ namespace MLPEnemyPos {
                 retString += "\"champ" + iter + "Score\":\"" + champion.Score + "\",";
                 Vector3 pos = champion.ServerPosition;
                 foreach (var hero in HeroManager.AllHeroes) {
-                    if (hero.Name == champion.Name) {
+                    if (hero.Name.Equals(champion.Name)) {
                         pos = hero.ServerPosition;
                     }
                 }
