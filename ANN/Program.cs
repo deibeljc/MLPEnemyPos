@@ -39,7 +39,7 @@ namespace MLPEnemyPos {
             // Run this code every 100 milliseconds... hopefully it works :D
             var timer = new System.Timers.Timer();
             timer.Elapsed += new ElapsedEventHandler(UpdateEnemyPos);
-            timer.Interval = 400;
+            timer.Interval = 1000;
             timer.Enabled = true;
             menu = new Menu("ANN", "ann", true);
             menu.AddItem(new MenuItem("sendData", "Send Data").SetValue(true));
@@ -49,7 +49,7 @@ namespace MLPEnemyPos {
         private static async Task WriteToDB(Obj_AI_Hero enemy) {
             try {
                 var httpWebRequest =
-                    (HttpWebRequest) WebRequest.Create("https://mlpdb-f6531.firebaseio.com/mlpdata-feature-eng-1.json");
+                    (HttpWebRequest) WebRequest.Create("https://mlpdb-f6531.firebaseio.com/mlpdata-feature-eng-2.json");
                 httpWebRequest.ContentType = "application/json";
                 httpWebRequest.Method = "POST";
                 using (var streamWriterX = new StreamWriter(httpWebRequest.GetRequestStream())) {
@@ -128,8 +128,14 @@ namespace MLPEnemyPos {
                 retString += "\"champ" + iter + "Gold\":\"" + champion.Gold + "\",";
                 retString += "\"champ" + iter + "TotalScore\":\"" + champion.TotalPlayerScore + "\",";
                 retString += "\"champ" + iter + "Score\":\"" + champion.Score + "\",";
-                retString += "\"champ" + iter + "DistanceDeltaX\":\"" + (champion.ServerPosition.X - enemy.ServerPosition.X) + "\",";
-                retString += "\"champ" + iter + "DistanceDeltaY\":\"" + (champion.ServerPosition.Y - enemy.ServerPosition.Y) + "\",";
+                Vector3 pos = champion.ServerPosition;
+                foreach (var hero in HeroManager.AllHeroes) {
+                    if (hero.Name == champion.Name) {
+                        pos = hero.ServerPosition;
+                    }
+                }
+                retString += "\"champ" + iter + "DistanceDeltaX\":\"" + (champion.ServerPosition.X - pos.X) + "\",";
+                retString += "\"champ" + iter + "DistanceDeltaY\":\"" + (champion.ServerPosition.Y - pos.Y) + "\",";
                 iter++;
             }
             return retString;
