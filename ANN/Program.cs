@@ -134,6 +134,7 @@ namespace MLPEnemyPos {
                         pos = hero.ServerPosition;
                     }
                 }
+                retString += "\"champ" + iter + "Velocity\":\"" + Math.Sqrt(Math.Pow(champion.ServerPosition.X - pos.X, 2) + Math.Pow(champion.ServerPosition.Y - pos.Y, 2)) + "\",";
                 retString += "\"champ" + iter + "DistanceDeltaX\":\"" + (champion.ServerPosition.X - pos.X) + "\",";
                 retString += "\"champ" + iter + "DistanceDeltaY\":\"" + (champion.ServerPosition.Y - pos.Y) + "\",";
                 iter++;
