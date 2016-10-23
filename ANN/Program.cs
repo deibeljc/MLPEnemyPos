@@ -54,7 +54,7 @@ namespace MLPEnemyPos {
             if (menu.Item("debug").IsActive()) {
                 foreach (var enemy in HeroManager.Enemies) {
                     Render.Circle.DrawCircle(enemy.ServerPosition, 10f, System.Drawing.Color.Blue, 10);
-                    Render.Circle.DrawCircle(prevPos[enemy.Name][0].Position, 10f, System.Drawing.Color.Red, 10);
+                    Render.Circle.DrawCircle(prevPos[enemy.Name][prevPos[enemy.Name].Count - 1].Position, 10f, System.Drawing.Color.Red, 10);
                 }
             }
         }
