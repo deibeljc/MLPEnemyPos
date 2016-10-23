@@ -52,9 +52,13 @@ namespace MLPEnemyPos {
 
         private static void OnDraw(EventArgs args) {
             if (menu.Item("debug").IsActive()) {
-                foreach (var enemy in HeroManager.Enemies) {
+                foreach (var enemy in HeroManager.AllHeroes) {
                     Render.Circle.DrawCircle(enemy.ServerPosition, 10f, System.Drawing.Color.Blue, 10);
-                    Render.Circle.DrawCircle(prevPos[enemy.Name][prevPos[enemy.Name].Count - 1].Position, 10f, System.Drawing.Color.Red, 10);
+                    if (prevPos.ContainsKey(enemy.Name)) {
+                        Render.Circle.DrawCircle(prevPos[enemy.Name][prevPos[enemy.Name].Count - 1].Position, 10f,
+                            System.Drawing.Color.Red, 10);
+                        Console.WriteLine("Drawing " + enemy.ChampionName);
+                    }
                 }
             }
         }
@@ -173,6 +177,9 @@ namespace MLPEnemyPos {
                         try {
                             if (prevPos[enemy.Name].Count >= 5) {
                                 WriteToDB(enemy);
+                                prevPos[enemy.Name].Add(CopyHero(enemy));
+                            }
+                            else {
                                 prevPos[enemy.Name].Add(CopyHero(enemy));
                             }
                         }
