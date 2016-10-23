@@ -3,6 +3,7 @@ using System;
 using System.Collections.Generic;
 using System.Drawing.Printing;
 using System.IO;
+using System.Linq;
 using System.Net;
 using System.Timers;
 using LeagueSharp.Common;
@@ -29,7 +30,7 @@ namespace MLPEnemyPos {
             public float Experience;
             public int CanMove;
             public int CanAttack;
-            public int IsRecalling; 
+            public int IsRecalling;
             public int UnderAllyTurret;
             public float ManaPercent;
             public float MoveSpeed;
@@ -54,10 +55,9 @@ namespace MLPEnemyPos {
             if (menu.Item("debug").IsActive()) {
                 foreach (var enemy in HeroManager.AllHeroes) {
                     Render.Circle.DrawCircle(enemy.ServerPosition, 10f, System.Drawing.Color.Blue, 10);
-                    if (prevPos.ContainsKey(enemy.Name)) {
+                    if (prevPos.ContainsKey(enemy.Name) && enemy.IsVisible) {
                         Render.Circle.DrawCircle(prevPos[enemy.Name][prevPos[enemy.Name].Count - 1].Position, 10f,
                             System.Drawing.Color.Red, 10);
-                        Console.WriteLine("Drawing " + enemy.ChampionName);
                     }
                 }
             }
@@ -66,7 +66,7 @@ namespace MLPEnemyPos {
         private static async Task WriteToDB(Obj_AI_Hero enemy) {
             try {
                 var httpWebRequest =
-                    (HttpWebRequest) WebRequest.Create("https://mlpdb-f6531.firebaseio.com/mlpdata-feature-eng-5.json");
+                    (HttpWebRequest) WebRequest.Create("https://mlpdb-f6531.firebaseio.com/mlpdata-feature-eng-6.json");
                 httpWebRequest.ContentType = "application/json";
                 httpWebRequest.Method = "POST";
                 using (var streamWriterX = new StreamWriter(httpWebRequest.GetRequestStream())) {
@@ -88,7 +88,8 @@ namespace MLPEnemyPos {
                                    AllChampionPositions(enemy) +
                                    ChampionPath(enemy) +
                                    "\"champHash\":\"" + enemy.ChampionName.GetHashCode() + "\"";
-                    var textToWriteX = features + ",\"enemyPredX\":\"" + enemy.ServerPosition.X + "\",\"enemyPredY\":\"" + enemy.ServerPosition.Y + "\"}";
+                    var textToWriteX = features + ",\"enemyPredX\":\"" + enemy.ServerPosition.X + "\",\"enemyPredY\":\"" +
+                                       enemy.ServerPosition.Y + "\"}";
 
                     streamWriterX.Write(textToWriteX);
                     streamWriterX.Flush();
@@ -98,7 +99,6 @@ namespace MLPEnemyPos {
                 var httpResponse = (HttpWebResponse) httpWebRequest.GetResponse();
                 using (var streamReader = new StreamReader(httpResponse.GetResponseStream())) {
                     var result = streamReader.ReadToEnd();
-                    Console.WriteLine(result);
                 }
             }
             catch (Exception ex) {
@@ -149,7 +149,9 @@ namespace MLPEnemyPos {
                 retString += "\"champ" + iter + "Gold\":\"" + champion.Gold + "\",";
                 // Get the previous recorded position.
                 var pos = prevPos[enemy.Name][prevPos[enemy.Name].Count - 2].Position;
-                retString += "\"champ" + iter + "Velocity\":\"" + Math.Sqrt(Math.Pow(champion.ServerPosition.X - pos.X, 2) + Math.Pow(champion.ServerPosition.Y - pos.Y, 2)) + "\",";
+                retString += "\"champ" + iter + "Velocity\":\"" +
+                             Math.Sqrt(Math.Pow(champion.ServerPosition.X - pos.X, 2) +
+                                       Math.Pow(champion.ServerPosition.Y - pos.Y, 2)) + "\",";
                 retString += "\"champ" + iter + "DistanceDeltaX\":\"" + (champion.ServerPosition.X - pos.X) + "\",";
                 retString += "\"champ" + iter + "DistanceDeltaY\":\"" + (champion.ServerPosition.Y - pos.Y) + "\",";
                 iter++;
@@ -161,10 +163,17 @@ namespace MLPEnemyPos {
             String retString = "";
             var iter = 0;
             if (prevPos[enemy.Name].Count >= 5) {
-                for (int i = prevPos[enemy.Name].Count - 1; i < prevPos[enemy.Name].Count - 6; i--) {
-                    retString += "\"champPathX" + iter + "\":\"" + prevPos[enemy.Name][i].Position.X + "\",";
-                    retString += "\"champPathY" + iter + "\":\"" + prevPos[enemy.Name][i].Position.Y + "\",";
-                    iter++;
+                try {
+                    var prevPath = prevPos[enemy.Name].Skip(Math.Max(0, prevPos[enemy.Name].Count() - 5)).Take(5);
+                    foreach (var heroInfo in prevPath) {
+                        retString += "\"champPathX" + iter + "\":\"" + heroInfo.Position.X + "\",";
+                        retString += "\"champPathY" + iter + "\":\"" + heroInfo.Position.Y + "\",";
+                        iter++;
+                    }
+                }
+                catch (Exception e) {
+                    Console.WriteLine(e);
+                    throw;
                 }
             }
             return retString;
