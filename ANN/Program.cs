@@ -12,12 +12,15 @@ using System.Net.Http;
 using System.Net.Http.Headers;
 using System.Text;
 using System.Threading.Tasks;
+using Color = System.Drawing.Color;
 
 namespace MLPEnemyPos {
     class Program {
 
         private static Dictionary<String, List<HeroInfo>> prevPos = new Dictionary<String, List<HeroInfo>>();
         private static Menu menu;
+        private static int gridWidth = 5;
+        private static int gridHeight = 5;
 
         struct HeroInfo {
             public Vector3 Position;
@@ -34,6 +37,7 @@ namespace MLPEnemyPos {
             public int UnderAllyTurret;
             public float ManaPercent;
             public float MoveSpeed;
+            public List<Rectangle> grid;
             public List<Obj_AI_Hero> allHeroesInfo;
         }
 
@@ -42,58 +46,50 @@ namespace MLPEnemyPos {
             // Run this code every 100 milliseconds... hopefully it works :D
             var timer = new System.Timers.Timer();
             timer.Elapsed += new ElapsedEventHandler(UpdateEnemyPos);
-            timer.Interval = 500;
+            timer.Interval = 700;
             timer.Enabled = true;
             menu = new Menu("ANN", "ann", true);
             menu.AddItem(new MenuItem("sendData", "Send Data").SetValue(true));
-            menu.AddItem(new MenuItem("debug", "Draw Debug").SetValue(false));
+            menu.AddItem(new MenuItem("debug", "Draw Debug - Note: Draws a LOT!").SetValue(false));
             menu.AddToMainMenu();
             Drawing.OnDraw += OnDraw;
-        }
-
-        private static void OnDraw(EventArgs args) {
-            if (menu.Item("debug").IsActive()) {
-                foreach (var enemy in HeroManager.AllHeroes) {
-                    Render.Circle.DrawCircle(enemy.ServerPosition, 10f, System.Drawing.Color.Blue, 10);
-                    if (prevPos.ContainsKey(enemy.Name) && enemy.IsVisible) {
-                        Render.Circle.DrawCircle(prevPos[enemy.Name][prevPos[enemy.Name].Count - 1].Position, 10f,
-                            System.Drawing.Color.Red, 10);
-                    }
-                }
-            }
         }
 
         private static async Task WriteToDB(Obj_AI_Hero enemy) {
             try {
                 var httpWebRequest =
-                    (HttpWebRequest) WebRequest.Create("https://mlpdb-f6531.firebaseio.com/mlpdata-feature-eng-6.json");
+                    (HttpWebRequest) WebRequest.Create("https://mlpdb-f6531.firebaseio.com/mlpdata-feature-eng-7.json");
                 httpWebRequest.ContentType = "application/json";
                 httpWebRequest.Method = "POST";
                 using (var streamWriterX = new StreamWriter(httpWebRequest.GetRequestStream())) {
                     var prevInfo = prevPos[enemy.Name][prevPos[enemy.Name].Count - 1];
                     var prevPrevInfo = prevPos[enemy.Name][prevPos[enemy.Name].Count - 2];
-                    var features = "{\"posX\":\"" + prevInfo.Position.X + "\"," +
-                                   "\"posY\":\"" + prevInfo.Position.Y + "\"," +
-                                   "\"health\":\"" + prevInfo.HealthPercent + "\"," +
-                                   "\"healthDelta\":\"" + (prevPrevInfo.HealthPercent - prevInfo.HealthPercent) + "\"," +
-                                   "\"alliesInRange\":\"" + prevInfo.CountAlliesInRange + "\"," +
-                                   "\"enemiesInRange\":\"" + prevInfo.CountEnemiesInRange + "\"," +
-                                   "\"level\":\"" + prevInfo.Level + "\"," +
-                                   "\"exp\":\"" + prevInfo.Experience + "\"," +
-                                   "\"canMove\":\"" + prevInfo.CanMove + "\"," +
-                                   "\"canAttack\":\"" + prevInfo.CanAttack + "\"," +
-                                   "\"underAllyTurret\":\"" + prevInfo.UnderAllyTurret + "\"," +
-                                   "\"manaPercent\":\"" + prevInfo.ManaPercent + "\"," +
-                                   "\"moveSpeed\":\"" + prevInfo.MoveSpeed + "\"," +
-                                   AllChampionPositions(enemy) +
-                                   ChampionPath(enemy) +
-                                   "\"champHash\":\"" + enemy.ChampionName.GetHashCode() + "\"";
-                    var textToWriteX = features + ",\"enemyPredX\":\"" + enemy.ServerPosition.X + "\",\"enemyPredY\":\"" +
-                                       enemy.ServerPosition.Y + "\"}";
+                    var isInCell = InWhatCell(prevInfo.grid, enemy.ServerPosition);
+                    if (isInCell > 0) {
+                        var features = "{\"posX\":\"" + prevInfo.Position.X + "\"," +
+                                       "\"posY\":\"" + prevInfo.Position.Y + "\"," +
+                                       "\"health\":\"" + prevInfo.HealthPercent + "\"," +
+                                       "\"healthDelta\":\"" + (prevPrevInfo.HealthPercent - prevInfo.HealthPercent) +
+                                       "\"," +
+                                       "\"alliesInRange\":\"" + prevInfo.CountAlliesInRange + "\"," +
+                                       "\"enemiesInRange\":\"" + prevInfo.CountEnemiesInRange + "\"," +
+                                       "\"level\":\"" + prevInfo.Level + "\"," +
+                                       "\"exp\":\"" + prevInfo.Experience + "\"," +
+                                       "\"canMove\":\"" + prevInfo.CanMove + "\"," +
+                                       "\"canAttack\":\"" + prevInfo.CanAttack + "\"," +
+                                       "\"underAllyTurret\":\"" + prevInfo.UnderAllyTurret + "\"," +
+                                       "\"manaPercent\":\"" + prevInfo.ManaPercent + "\"," +
+                                       "\"moveSpeed\":\"" + prevInfo.MoveSpeed + "\"," +
+                                       AllChampionPositions(enemy) +
+                                       ChampionPath(enemy) +
+                                       "\"numOfCells\":\"" + gridHeight * gridWidth + "\"," +
+                                       "\"champHash\":\"" + enemy.ChampionName.GetHashCode() + "\"";
+                        var textToWriteX = features + ",\"inCell\":\"" + isInCell + "\"}";
 
-                    streamWriterX.Write(textToWriteX);
-                    streamWriterX.Flush();
-                    streamWriterX.Close();
+                        streamWriterX.Write(textToWriteX);
+                        streamWriterX.Flush();
+                        streamWriterX.Close();
+                    }
                 }
 
                 var httpResponse = (HttpWebResponse) httpWebRequest.GetResponse();
@@ -129,6 +125,7 @@ namespace MLPEnemyPos {
             retHero.ManaPercent = hero.ManaPercent;
             retHero.MoveSpeed = hero.MoveSpeed;
             retHero.allHeroesInfo = new List<Obj_AI_Hero>();
+            retHero.grid = BuildGrid(gridWidth, gridHeight, 700, 700, hero.ServerPosition);
             foreach (var champ in HeroManager.AllHeroes) {
                 retHero.allHeroesInfo.Add(champ);
             }
@@ -145,8 +142,6 @@ namespace MLPEnemyPos {
                 retString += "\"champ" + iter + "AttackDamage\":\"" + champion.TotalAttackDamage + "\",";
                 retString += "\"champ" + iter + "APDamage\":\"" + champion.TotalMagicalDamage + "\",";
                 retString += "\"champ" + iter + "Level\":\"" + champion.Level + "\",";
-                retString += "\"champ" + iter + "GoldTotal\":\"" + champion.GoldTotal + "\",";
-                retString += "\"champ" + iter + "Gold\":\"" + champion.Gold + "\",";
                 // Get the previous recorded position.
                 var pos = prevPos[enemy.Name][prevPos[enemy.Name].Count - 2].Position;
                 retString += "\"champ" + iter + "Velocity\":\"" +
@@ -177,6 +172,59 @@ namespace MLPEnemyPos {
                 }
             }
             return retString;
+        }
+
+        private static void OnDraw(EventArgs args) {
+            if (menu.Item("debug").IsActive()) {
+                foreach (var enemy in HeroManager.AllHeroes) {
+                    Render.Circle.DrawCircle(enemy.ServerPosition, 10f, System.Drawing.Color.Blue, 10);
+                    if (prevPos.ContainsKey(enemy.Name) && enemy.IsVisible) {
+                        Render.Circle.DrawCircle(prevPos[enemy.Name][prevPos[enemy.Name].Count - 1].Position, 10f,
+                            System.Drawing.Color.Red, 10);
+                    }
+                    var z = HeroManager.Player.Position.Z;
+                    foreach (var rectangle in prevPos[enemy.Name][prevPos[enemy.Name].Count - 1].grid) {
+                        var topLeft = Drawing.WorldToScreen(new Vector3(rectangle.TopLeft, z));
+                        var topRight = Drawing.WorldToScreen(new Vector3(rectangle.TopRight, z));
+                        var bottomLeft = Drawing.WorldToScreen(new Vector3(rectangle.BottomLeft, z));
+                        var bottomRight = Drawing.WorldToScreen(new Vector3(rectangle.BottomRight, z));
+                        Drawing.DrawLine(topLeft, topRight, 5f, Color.Blue);
+                        Drawing.DrawLine(topRight, bottomRight, 5f, Color.Blue);
+                        Drawing.DrawLine(bottomLeft, bottomRight, 5f, Color.Blue);
+                        Drawing.DrawLine(topLeft, bottomLeft, 5f, Color.Blue);
+                    }
+                }
+            }
+         }
+
+        private static List<Rectangle> BuildGrid(int gridWidth, int gridHeight, int width, int height, Vector3 position) {
+            List<Rectangle> grid = new List<Rectangle>();
+            int cellWidth = width/gridWidth;
+            int cellHeight = height/gridHeight;
+            var posY = position.Y + height / 2 - cellHeight;
+            Vector2 startPos = new Vector2(position.X - width / 2, posY);
+            for (int i = 0; i < gridWidth; i++) {
+                for (int j = 0; j < gridHeight; j++) {
+                    int x = Convert.ToInt32(startPos.X + i*(width/gridWidth));
+                    int y = Convert.ToInt32(startPos.Y - j*(height/gridHeight));
+                    grid.Add(new Rectangle(x, y, cellWidth, cellHeight));
+                }
+            }
+            return grid;            
+        }
+
+        public static int InWhatCell(List<Rectangle> grid, Vector3 pos) {
+            var recIn = 0;
+            foreach (var rectangle in grid) {
+                if (rectangle.Contains(pos.X, pos.Y)) {
+                    break;
+                }
+                recIn++;
+                if (recIn >= grid.Count) {
+                    recIn = -1;
+                }
+            }
+            return recIn;
         }
 
         private static void UpdateEnemyPos(object sender, EventArgs e) {
